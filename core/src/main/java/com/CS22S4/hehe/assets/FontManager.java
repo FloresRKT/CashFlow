@@ -32,12 +32,12 @@ public class FontManager {
     private void initializeFonts(Skin skin) {
         defaultFont = new BitmapFont();
 
-        calculatorFont = generateFont("fonts/Calculator.ttf", 24, Color.WHITE);
-        calculatorFontSmall = generateFont("fonts/Calculator.ttf", 14, Color.WHITE);
         segoeUI10 = generateFont("C:/Windows/Fonts/segoeui.ttf", 10, Color.WHITE);
         segoeUI20 = generateFont("C:/Windows/Fonts/segoeui.ttf", 20, Color.BLACK);
         segoeUI100 = generateFont("C:/Windows/Fonts/segoeui.ttf", 100, Color.valueOf("494744"));
         segoeUIBlack36 = generateFont("C:/Windows/Fonts/segoeui.ttf", 36, Color.BLACK);
+        calculatorFont = generateFont("fonts/Calculator.ttf", 24, Color.WHITE);
+        calculatorFontSmall = generateFont("fonts/Calculator.ttf", 14, Color.WHITE);
 
         FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
 
@@ -46,7 +46,7 @@ public class FontManager {
     }
 
     private BitmapFont generateFont(String fontPath, int size, Color color) {
-        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.absolute(fontPath));
+        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal(fontPath));
         FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
         parameter.size = size;
         parameter.color = color;

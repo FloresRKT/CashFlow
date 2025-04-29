@@ -29,7 +29,6 @@ public class ScreenManager {
         screenStack.push(screen);
         game.setScreen(screen);
         screen.show();
-        debugStack();
     }
 
     public void pushOverlay(BaseOverlay overlay) {
@@ -38,7 +37,6 @@ public class ScreenManager {
         }
         overlayStack.push(overlay);
         overlay.showOverlay();
-        debugStack();
     }
 
     public void popScreen() {
@@ -49,7 +47,6 @@ public class ScreenManager {
                 screenStack.peek().show();
             }
         }
-        debugStack();
     }
 
     public void popOverlay() {
@@ -59,7 +56,6 @@ public class ScreenManager {
                 overlayStack.peek().showOverlay();
             }
         }
-        debugStack();
     }
 
     public Screen peekScreen() {
