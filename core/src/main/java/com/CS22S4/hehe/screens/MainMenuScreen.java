@@ -3,6 +3,7 @@ package com.CS22S4.hehe.screens;
 import com.CS22S4.hehe.App;
 import com.CS22S4.hehe.overlays.AboutOverlay;
 import com.CS22S4.hehe.overlays.StatsOverlay;
+import com.CS22S4.hehe.services.SQLiteService;
 import com.CS22S4.hehe.ui.LabeledButton;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputMultiplexer;
@@ -133,7 +134,7 @@ public class MainMenuScreen implements Screen {
 
         menuButton4.setOnClick(() -> {
             if (menuScreen1.isVisible()) {
-                game.screenManager.pushOverlay(new StatsOverlay(new ScreenViewport(), game, stage, game.skin));
+                game.screenManager.pushOverlay(new StatsOverlay(new ScreenViewport(), game, stage, game.skin, game.sqliteService));
             } else {
                 menuScreen1.setVisible(true);
                 menuScreen2.setVisible(false);

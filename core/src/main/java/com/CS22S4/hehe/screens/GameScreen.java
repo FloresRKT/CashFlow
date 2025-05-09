@@ -36,6 +36,7 @@ public class GameScreen implements Screen {
     private ArrayList<Customer> servedCustomers;
     private ArrayList<Customer> customerQueue;
     private int difficulty;
+    private int totalAmountDispensed;
 
     private boolean isPauseOverlayVisible;
 
@@ -108,6 +109,8 @@ public class GameScreen implements Screen {
         List<Color> colors = List.of(Color.GOLD, Color.PINK);
         int size = game.denominations.size();
         gradientColors = GradientColorGenerator.generateGradientColors(size, colors);
+
+        totalAmountDispensed = 0;
 
         createUI();
         setupEventListeners();
@@ -270,8 +273,26 @@ public class GameScreen implements Screen {
     }
 
     private void gameOver() {
+        List<Integer> highScores = game.sqliteService.getHighScores();
+
         isTimerRunning = false;
-        game.screenManager.pushOverlay(new PostGameOverlay(new ScreenViewport(), game, stage, game.skin));
+        game.sqliteService.storeGameRecord(highScoreDisplay.getAmount(), servedCustomers.size(), totalAmountDispensed);
+
+        if (highScores.get(difficulty) < ratingDisplay.getAmount()) {
+            switch (difficulty) {
+                case 0:
+                    game.sqliteService.setHighScores(ratingDisplay.getAmount(), highScores.get(1), highScores.get(2));
+                    break;
+                case 1:
+                    game.sqliteService.setHighScores(highScores.get(0), ratingDisplay.getAmount(), highScores.get(2));
+                    break;
+                case 2:
+                    game.sqliteService.setHighScores(highScores.get(0), highScores.get(1), ratingDisplay.getAmount());
+                    break;
+            }
+        }
+        game.screenManager.pushOverlay(new PostGameOverlay(new ScreenViewport(), game, stage, game.skin,
+            ratingDisplay.getAmount(), totalAmountDispensed, servedCustomers.size()));
     }
 
     private void customerRequest() {
@@ -294,7 +315,7 @@ public class GameScreen implements Screen {
                 float normalTimeMultiplier = (float) Math.round(Math.pow(0.65, (float) (servedCustomers.size() / 3)) * 100) / 100;
                 float hardTimeMultiplier = (float) Math.round(Math.pow(0.6, (float) (servedCustomers.size() / 2)) * 100) / 100;
 
-                float startTime = 0f;
+                float startTime = 30f;
 
                 switch (difficulty) {
                     case 0:
@@ -334,6 +355,7 @@ public class GameScreen implements Screen {
         float serviceTime = 300 - timeLeft;
         isTimerRunning = false;
         currentCustomer.completeRequest(serviceTime);
+        totalAmountDispensed += totalAmountDisplay.getAmount();
 
         prepareSortingSteps(new ArrayList<>(bills));
 
@@ -356,7 +378,10 @@ public class GameScreen implements Screen {
         setDispenseButtonEnabled(false);
         totalAmountDisplay.changeAmount(0);
         requiredAmountDisplay.changeAmount(0);
-        ratingDisplay.changeAmount(ratingDisplay.getAmount() + 100);
+        ratingDisplay.changeAmount(ratingDisplay.getAmount() + 100 + (int) (timeLeft * 10));
+        if (ratingDisplay.getAmount() > highScoreDisplay.getAmount()) {
+            highScoreDisplay.changeAmount(ratingDisplay.getAmount());
+        }
         bars.clear();
         bills.clear();
 
@@ -461,6 +486,28 @@ public class GameScreen implements Screen {
         }
     }
 
+    public static boolean checkArrayOrder(int[] array) {
+        boolean isAscending = true;
+        boolean isDescending = true;
+
+        for (int i = 0; i < array.length - 1; i++) {
+            if (array[i] > array[i + 1]) {
+                isAscending = false;
+            }
+            if (array[i] < array[i + 1]) {
+                isDescending = false;
+            }
+        }
+
+        if (isAscending) {
+            return true;
+        } else if (isDescending) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     // Set random texture for NPCs. Called whenever a new NPC spawns in
     public void setRandomNPCTexture() {
         Texture newTexture;
@@ -561,6 +608,8 @@ public class GameScreen implements Screen {
         highScoreDisplay.setSize(game.viewport.getWorldWidth() * 0.305f, game.viewport.getWorldHeight() * 0.15f);
         highScoreDisplay.setPosition(game.viewport.getWorldWidth() * 0.685f, game.viewport.getWorldHeight() * 0.78f);
         highScoreDisplay.layoutElements();
+
+        highScoreDisplay.changeAmount(game.sqliteService.getHighScores().get(difficulty));
 
         ratingDisplay = new ScorePanel(game, game.textureManager.scoreLabelTexture, "RATING");
         ratingDisplay.setSize(game.viewport.getWorldWidth() * 0.305f, game.viewport.getWorldHeight() * 0.15f);

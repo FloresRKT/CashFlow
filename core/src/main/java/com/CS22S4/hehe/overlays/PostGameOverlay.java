@@ -25,11 +25,17 @@ public class PostGameOverlay extends BaseOverlay {
     private Label totalScore;
     private TextButton restartButton;
     private TextButton quitButton;
+    private int score;
+    private int totalCustomers;
+    private int totalDispensed;
 
-    public PostGameOverlay(Viewport viewport, App game, Stage stage, Skin skin) {
+    public PostGameOverlay(Viewport viewport, App game, Stage stage, Skin skin, int score, int totalDispensed, int totalCustomers) {
         super(viewport);
         this.skin = skin;
         this.game = game;
+        this.score = score;
+        this.totalCustomers = totalCustomers;
+        this.totalDispensed = totalDispensed;
 
         createOverlayContent(viewport);
 
@@ -60,15 +66,16 @@ public class PostGameOverlay extends BaseOverlay {
     @Override
     protected void createOverlayContent(Viewport viewport) {
         title = new Label("Game Over", skin.get("overlayTitleLabel", Label.LabelStyle.class));
-        totalCustomersServed = new Label("Total Customers Served: ", skin.get("overlayBodyLabel", Label.LabelStyle.class));
-        totalAmountDispensed = new Label("Total Amount Dispensed: ", skin.get("overlayBodyLabel", Label.LabelStyle.class));
-        totalScore = new Label("Total Score: ", skin.get("overlayBodyLabel", Label.LabelStyle.class));
+        totalCustomersServed = new Label("Total Customers Served: " + totalCustomers, skin.get("overlayBodyLabel", Label.LabelStyle.class));
+        totalAmountDispensed = new Label("Total Amount Dispensed: " + totalDispensed, skin.get("overlayBodyLabel", Label.LabelStyle.class));
+        totalScore = new Label("Total Score: " + score, skin.get("overlayBodyLabel", Label.LabelStyle.class));
         restartButton = new TextButton("Restart", skin.get("transparentButton", TextButton.TextButtonStyle.class));
         quitButton = new TextButton("Quit to Menu", skin.get("transparentButton", TextButton.TextButtonStyle.class));
 
         rootTable.add(title).padBottom(20).center().row();
         rootTable.add(totalCustomersServed).padBottom(10).left().row();
         rootTable.add(totalAmountDispensed).padBottom(10).left().row();
+        rootTable.add(totalScore).padBottom(10).left().row();
         rootTable.add(restartButton).row();
         rootTable.add(quitButton).row();
 
