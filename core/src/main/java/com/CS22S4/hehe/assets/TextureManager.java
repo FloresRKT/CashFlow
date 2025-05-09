@@ -28,6 +28,7 @@ public class TextureManager {
     public Texture menuRightButtonDownTexture;
     public Texture menuScreenTexture1;
     public Texture menuScreenTexture2;
+    public Texture overlayTexture;
 
     public Array<Texture> npcTextures;
 
@@ -64,5 +65,6 @@ public class TextureManager {
         menuLeftButtonDownTexture = new Texture(Gdx.files.internal("menu_button_left_down.png"));
         menuRightButtonUpTexture = new Texture(Gdx.files.internal("menu_button_right_up.png"));
         menuRightButtonDownTexture = new Texture(Gdx.files.internal("menu_button_right_down.png"));
+        overlayTexture = new Texture(Gdx.files.internal("overlay_bg.png"));
     }
 }

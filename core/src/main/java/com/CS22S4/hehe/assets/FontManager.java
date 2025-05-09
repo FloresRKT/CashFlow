@@ -16,6 +16,7 @@ public class FontManager {
     private BitmapFont segoeUI20;
     private BitmapFont segoeUI100;
     private BitmapFont segoeUIBlack36;
+    private BitmapFont segoeUIBlack20;
     private Label.LabelStyle defaultLabelStyle;
     private Label.LabelStyle gameScreenLabelStyle;
     private Label.LabelStyle numericlabelStyle;
@@ -33,9 +34,10 @@ public class FontManager {
         defaultFont = new BitmapFont();
 
         segoeUI10 = generateFont("C:/Windows/Fonts/segoeui.ttf", 10, Color.WHITE);
-        segoeUI20 = generateFont("C:/Windows/Fonts/segoeui.ttf", 20, Color.BLACK);
+        segoeUI20 = generateFont("C:/Windows/Fonts/segoeui.ttf", 20, Color.WHITE);
         segoeUI100 = generateFont("C:/Windows/Fonts/segoeui.ttf", 100, Color.valueOf("494744"));
-        segoeUIBlack36 = generateFont("C:/Windows/Fonts/segoeui.ttf", 36, Color.BLACK);
+        segoeUIBlack36 = generateFont("C:/Windows/Fonts/segoeui.ttf", 36, Color.WHITE);
+        segoeUIBlack20 = generateFont("C:/Windows/Fonts/segoeui.ttf", 20, Color.BLACK);
         calculatorFont = generateFont("fonts/Calculator.ttf", 24, Color.WHITE);
         calculatorFontSmall = generateFont("fonts/Calculator.ttf", 14, Color.WHITE);
 
@@ -61,8 +63,8 @@ public class FontManager {
         numericlabelStyle = new Label.LabelStyle(calculatorFont, null);
         numericlabelStyleSmall = new Label.LabelStyle(calculatorFontSmall, null);
         titleLabelStyle = new Label.LabelStyle(segoeUI100, null);
-        overlayTitleLabelStyle = new Label.LabelStyle(segoeUIBlack36, null);
-        overlayBodyLabelStyle = new Label.LabelStyle(segoeUI20, Color.BLACK);
+        overlayTitleLabelStyle = new Label.LabelStyle(segoeUIBlack36, Color.WHITE);
+        overlayBodyLabelStyle = new Label.LabelStyle(segoeUI20, Color.WHITE);
 
         buttonStyle = new TextButton.TextButtonStyle();
         buttonStyle.font = defaultFont;
@@ -71,9 +73,10 @@ public class FontManager {
 
     public void addToSkin(Skin skin) {
         skin.add("default", defaultFont);
-        skin.add("segoeUI11", segoeUI10);
+        skin.add("segoeUI10", segoeUI10);
         skin.add("segoeUI100", segoeUI100);
         skin.add("segoeUIBlack36", segoeUIBlack36);
+        skin.add("segoeUIBlack20", segoeUIBlack20);
         skin.add("calculator", calculatorFont);
         skin.add("default", defaultLabelStyle);
         skin.add("gameScreenLabel", gameScreenLabelStyle);
@@ -83,6 +86,15 @@ public class FontManager {
         skin.add("overlayTitleLabel", overlayTitleLabelStyle);
         skin.add("overlayBodyLabel", overlayBodyLabelStyle);
         skin.add("default", buttonStyle);
+
+        // Create a transparent style
+        TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
+        textButtonStyle.font = skin.getFont("segoeUIBlack36");
+        textButtonStyle.fontColor = Color.WHITE;
+        textButtonStyle.up = null; // No background texture
+        textButtonStyle.down = null; // No pressed texture
+        textButtonStyle.over = null; // No hover texture
+        skin.add("transparentButton", textButtonStyle);
     }
 
     public void dispose() {

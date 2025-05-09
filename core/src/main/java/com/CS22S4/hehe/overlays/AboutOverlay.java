@@ -17,6 +17,7 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class AboutOverlay extends BaseOverlay {
     private final Skin skin;
+    private App game;
     private Label title;
     private Label body;
     private TextButton confirmButton;
@@ -24,6 +25,7 @@ public class AboutOverlay extends BaseOverlay {
     public AboutOverlay(Viewport viewport, App game, Stage stage, Skin skin) {
         super(viewport);
         this.skin = skin;
+        this.game = game;
 
         createOverlayContent(viewport);
 
@@ -48,22 +50,27 @@ public class AboutOverlay extends BaseOverlay {
     @Override
     protected void createOverlayContent(Viewport viewport) {
         title = new Label("About", skin.get("overlayTitleLabel", Label.LabelStyle.class));
-        body = new Label("", skin.get("default", Label.LabelStyle.class));
         confirmButton = new TextButton("OK", skin.get("transparentButton", TextButton.TextButtonStyle.class));
 
         rootTable.add(title).padBottom(20).row();
-        rootTable.add(body).padBottom(10).row();
+        rootTable.add(new Label("CashFlow: An ATM Game", skin, "overlayBodyLabel")).padBottom(10).row();
+        rootTable.add(new Label("CS 201A - Data Structures and Algorithms Analysis", skin, "overlayBodyLabel")).padBottom(10).row();
+        rootTable.add(new Label("CS22S4", skin, "overlayBodyLabel")).padBottom(10).row();
+        rootTable.add(new Label("------------------------------", skin, "overlayBodyLabel")).padBottom(10).row();
+        rootTable.add(new Label("Group Hehe", skin, "overlayBodyLabel")).padBottom(10).row();
+        rootTable.add(new Label("Trazo, Ysabella Moeka", skin, "overlayBodyLabel")).padBottom(10).row();
+        rootTable.add(new Label("Flores, Renz Ken", skin, "overlayBodyLabel")).padBottom(10).row();
+        rootTable.add(new Label("Rodriguez, Dave Matthew", skin, "overlayBodyLabel")).padBottom(10).row();
+        rootTable.add(new Label("Tunay, Aron Mc Vincent", skin, "overlayBodyLabel")).padBottom(10).row();
         rootTable.add(confirmButton);
 
         // Inside your PauseOverlay constructor or initialization method
-        Texture whiteTexture = new Texture("white_bg.png"); // A plain white 1x1 texture
-        Image background = new Image(new TextureRegionDrawable(whiteTexture));
-        background.setColor(1, 1, 1, 0.9f); // Set white color with 50% transparency
-        background.setSize(viewport.getWorldWidth()/2, viewport.getWorldHeight()/2);
-        background.setPosition(viewport.getWorldWidth()/2 - background.getWidth()/2, viewport.getWorldHeight()/2 - background.getHeight()/2);
+        Image overlayBg = new Image(game.textureManager.overlayTexture);
+        overlayBg.setSize(viewport.getWorldWidth() * 0.7f, viewport.getWorldHeight() * 0.8f);
+        overlayBg.setPosition(viewport.getWorldWidth()/2 - overlayBg.getWidth()/2, viewport.getWorldHeight()/2 - overlayBg.getHeight()/2);
 
         overlayStage.clear();
-        overlayStage.addActor(background);
+        overlayStage.addActor(overlayBg);
         overlayStage.addActor(rootTable);
     }
 }

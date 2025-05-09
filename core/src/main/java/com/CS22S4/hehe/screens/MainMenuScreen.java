@@ -109,7 +109,7 @@ public class MainMenuScreen implements Screen {
                 menuScreen2.setVisible(true);
             } else {
                 game.screenManager.popScreen();
-                game.screenManager.pushScreen(new GameScreen(game));
+                game.screenManager.pushScreen(new GameScreen(game, 0));
             }
         });
 
@@ -118,7 +118,7 @@ public class MainMenuScreen implements Screen {
                 game.screenManager.pushOverlay(new AboutOverlay(new ScreenViewport(), game, stage, game.skin));
             } else {
                 game.screenManager.popScreen();
-                game.screenManager.pushScreen(new GameScreen(game));
+                game.screenManager.pushScreen(new GameScreen(game, 1));
             }
         });
 
@@ -127,7 +127,7 @@ public class MainMenuScreen implements Screen {
                 Gdx.app.exit();
             } else {
                 game.screenManager.popScreen();
-                game.screenManager.pushScreen(new GameScreen(game));
+                game.screenManager.pushScreen(new GameScreen(game, 2));
             }
         });
 

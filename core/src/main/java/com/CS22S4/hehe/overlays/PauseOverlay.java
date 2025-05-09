@@ -16,12 +16,14 @@ import com.CS22S4.hehe.events.OverlayEvent;
 
 public class PauseOverlay extends BaseOverlay {
     private final Skin skin;
+    private App game;
     private TextButton resumeButton;
     private TextButton quitButton;
 
     public PauseOverlay(Viewport viewport, App game, Stage stage, Skin skin) {
         super(viewport);
         this.skin = skin;
+        this.game = game;
 
         createOverlayContent(viewport);
 
@@ -57,19 +59,16 @@ public class PauseOverlay extends BaseOverlay {
         resumeButton = new TextButton("Resume", skin.get("transparentButton", TextButton.TextButtonStyle.class));
         quitButton = new TextButton("Quit", skin.get("transparentButton", TextButton.TextButtonStyle.class));
 
-        // Inside your PauseOverlay constructor or initialization method
-        Texture whiteTexture = new Texture("white_bg.png"); // A plain white 1x1 texture
-        Image background = new Image(new TextureRegionDrawable(whiteTexture));
-        background.setColor(1, 1, 1, 0.5f); // Set white color with 50% transparency
-        background.setSize(viewport.getWorldWidth(), viewport.getWorldHeight());
-        background.setPosition(0, 0);
+        Image overlayBg = new Image(game.textureManager.overlayTexture);
+        overlayBg.setSize(viewport.getWorldWidth() * 0.5f, viewport.getWorldHeight() * 0.4f);
+        overlayBg.setPosition(viewport.getWorldWidth()/2 - overlayBg.getWidth()/2, viewport.getWorldHeight()/2 - overlayBg.getHeight()/2);
 
         rootTable.add(pauseLabel).padBottom(20).row();
         rootTable.add(resumeButton).padBottom(10).row();
         rootTable.add(quitButton);
 
         overlayStage.clear();
-        overlayStage.addActor(background);
+        overlayStage.addActor(overlayBg);
         overlayStage.addActor(rootTable);
     }
 }

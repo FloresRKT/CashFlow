@@ -1,5 +1,6 @@
 package com.CS22S4.hehe.screens;
 
+import com.CS22S4.hehe.entity.Bill;
 import com.CS22S4.hehe.entity.Customer;
 import com.CS22S4.hehe.events.ATMEvent;
 import com.CS22S4.hehe.events.EventManager;
@@ -7,22 +8,25 @@ import com.CS22S4.hehe.App;
 import com.CS22S4.hehe.events.OverlayEvent;
 import com.CS22S4.hehe.overlays.PauseOverlay;
 import com.CS22S4.hehe.overlays.PostGameOverlay;
-import com.CS22S4.hehe.ui.DenominationDisplay;
-import com.CS22S4.hehe.ui.ScorePanel;
-import com.CS22S4.hehe.ui.TransactionPanel;
+import com.CS22S4.hehe.ui.*;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import static com.badlogic.gdx.scenes.scene2d.actions.Actions.*;
+
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class GameScreen implements Screen {
     private final App game;
@@ -31,6 +35,7 @@ public class GameScreen implements Screen {
     private Customer currentCustomer;
     private ArrayList<Customer> servedCustomers;
     private ArrayList<Customer> customerQueue;
+    private int difficulty;
 
     private boolean isPauseOverlayVisible;
 
@@ -41,6 +46,12 @@ public class GameScreen implements Screen {
     private Label timer;
     private Label dispenseLabel;
     public Image npcImage;
+
+    private ColoredBarRenderer barRenderer;
+    private List<Bar> bars;
+    private List<Integer> bills;
+    private List<Color> gradientColors;
+    private List<Bar> barDisplay;
 
     private ImageButton correctButton;
     public ImageButton pauseButton;
@@ -58,9 +69,19 @@ public class GameScreen implements Screen {
     private Texture lastUsedTexture;
     private boolean isAnimating = false;
     private boolean isGameOver = false;
+    private boolean isSorting = false;
 
-    public GameScreen(App game) {
+    private Label contextLabel;
+    private Label timerLabel;
+
+    private float elapsedTime = 0f; // Accumulated time
+    private final float stepInterval = 0.2f; // Interval in seconds
+    private List<int[]> sortingSteps; // Stores the steps of the sorting process
+    private int currentStep = 0; // Tracks the current step
+
+    public GameScreen(App game, int difficulty) {
         this.game = game;
+        this.difficulty = difficulty;
 
         stage = new Stage(new ScreenViewport(game.camera));
         Gdx.input.setInputProcessor(stage);
@@ -78,6 +99,16 @@ public class GameScreen implements Screen {
         // Set of denominations to be used
         denominationDisplays = new ArrayList<>();
 
+        barRenderer = new ColoredBarRenderer();
+        bars = new ArrayList<>();
+        barDisplay = new ArrayList<>();
+
+        bills = new ArrayList<>();
+
+        List<Color> colors = List.of(Color.GOLD, Color.PINK);
+        int size = game.denominations.size();
+        gradientColors = GradientColorGenerator.generateGradientColors(size, colors);
+
         createUI();
         setupEventListeners();
     }
@@ -85,6 +116,38 @@ public class GameScreen implements Screen {
     @Override
     public void render(float delta) {
         game.viewport.apply();
+
+        if (isSorting) {
+            // Accumulate delta time
+            elapsedTime += delta;
+            // Execute the next step if the interval has passed
+            if (elapsedTime >= stepInterval && currentStep < sortingSteps.size()) {
+                elapsedTime -= stepInterval; // Reset elapsed time
+                executeSortingStep(sortingSteps.get(currentStep)); // Execute the current step
+
+                bills.clear(); // Clear the existing bills
+                bars.clear();
+                for (int value : sortingSteps.get(currentStep)) {
+                    bills.add(value); // Add each value from the current step to the bills list
+                    bars.add(new Bar(gradientColors.get(game.denominations.indexOf(value))));
+                }
+                updateBarPositions();
+
+                // Move to next step, otherwise finish animation and move to next customer
+                if (currentStep < sortingSteps.size() - 1) {
+                    currentStep++; // Move to the next step
+                } else {
+                    isSorting = false;
+                    currentStep = 0;
+                    contextLabel.setText("Done!");
+                    resetUI();
+
+                    // Fire customer leave event to handle animation
+                    eventManager.fireEvent(new ATMEvent(ATMEvent.Type.CUSTOMER_LEAVE, null), stage);
+                }
+
+            }
+        }
 
         if (isTimerRunning && timeLeft > 0) {
             timeLeft -= delta;
@@ -100,6 +163,10 @@ public class GameScreen implements Screen {
         }
 
         stage.draw();
+
+        // Render the bars
+        barRenderer.renderBars(bars, game.viewport);
+        barRenderer.renderBars(barDisplay, game.viewport);
 
         // Set this to true to enable debug lines on all actors
         stage.setDebugAll(false);
@@ -141,8 +208,12 @@ public class GameScreen implements Screen {
                             gameOver();
                             return true;
                         case ADD_BUTTON_CLICKED:
+                            changeAmount(atmEvent);
+                            addBar(atmEvent);
+                            return true;
                         case SUBTRACT_BUTTON_CLICKED:
                             changeAmount(atmEvent);
+                            removeBar(atmEvent);
                             return true;
                         case GAME_PAUSED:
                             pause();
@@ -194,14 +265,6 @@ public class GameScreen implements Screen {
         customerQueue.clear();
         servedCustomers.clear();
 
-        // Generate amount of customers between the minimum and maximum
-        int customerAmount = game.MINIMUM_CUSTOMER_AMOUNT +
-            (int)Math.floor((Math.random() * (game.MAXIMUM_CUSTOMER_AMOUNT - game.MINIMUM_CUSTOMER_AMOUNT)));
-
-        for (int i=0; i<customerAmount; i++) {
-            customerQueue.add(new Customer(generateRandomRequestAmount()));
-        }
-
         //eventManager.fireEvent(new ATMEvent(ATMEvent.Type.GAME_OVER, null), stage);
         eventManager.fireEvent(new ATMEvent(ATMEvent.Type.CUSTOMER_REQUEST, null), stage);
     }
@@ -214,7 +277,7 @@ public class GameScreen implements Screen {
     private void customerRequest() {
         npcImage.setVisible(true);
 
-        currentCustomer = customerQueue.remove(0);
+        currentCustomer = new Customer(generateRandomRequestAmount());
         setRandomNPCTexture();
         // Set initial alpha to 0 before fading in
         npcImage.getColor().a = 0f;
@@ -226,6 +289,27 @@ public class GameScreen implements Screen {
                 setAnimating(false);
                 requiredAmountDisplay.changeAmount(currentCustomer.getRequestedAmount());
                 setWrongButtonEnabled(true);
+
+                float easyTimeMultiplier = (float) Math.round(Math.pow(0.7, (float) (servedCustomers.size() / 4)) * 100) / 100;
+                float normalTimeMultiplier = (float) Math.round(Math.pow(0.65, (float) (servedCustomers.size() / 3)) * 100) / 100;
+                float hardTimeMultiplier = (float) Math.round(Math.pow(0.6, (float) (servedCustomers.size() / 2)) * 100) / 100;
+
+                float startTime = 0f;
+
+                switch (difficulty) {
+                    case 0:
+                        timeLeft = (float) Math.ceil(startTime * easyTimeMultiplier);
+                        break;
+                    case 1:
+                        timeLeft = (float) Math.ceil(startTime * normalTimeMultiplier);
+                        break;
+                    case 2:
+                        timeLeft = (float) Math.ceil(startTime * hardTimeMultiplier);
+                        break;
+                }
+
+                isTimerRunning = true;
+                contextLabel.setText("Transaction in progress...");
             })
         ));
     }
@@ -239,18 +323,33 @@ public class GameScreen implements Screen {
             run(() -> {
                 setAnimating(false);
                 npcImage.setVisible(false);
-                if (!customerQueue.isEmpty()) {
-                    // Fire customer request event to set the next customer
-                    eventManager.fireEvent(new ATMEvent(ATMEvent.Type.CUSTOMER_REQUEST, null), stage);
-                }
+
+                // New customer
+                eventManager.fireEvent(new ATMEvent(ATMEvent.Type.CUSTOMER_REQUEST, null), stage);
             })
         ));
     }
 
     private void dispense() {
         float serviceTime = 300 - timeLeft;
+        isTimerRunning = false;
         currentCustomer.completeRequest(serviceTime);
 
+        prepareSortingSteps(new ArrayList<>(bills));
+
+        if (sortingSteps.isEmpty()) {
+            isSorting = false;
+            contextLabel.setText("Done!");
+
+            // Initiate customer leaving animation early
+            eventManager.fireEvent(new ATMEvent(ATMEvent.Type.CUSTOMER_LEAVE, null), stage);
+        } else {
+            isSorting = true;
+            contextLabel.setText("Sorting...");
+        }
+    }
+
+    private void resetUI() {
         // Reset UI state
         setCorrectButtonEnabled(false);
         setWrongButtonEnabled(false);
@@ -258,13 +357,12 @@ public class GameScreen implements Screen {
         totalAmountDisplay.changeAmount(0);
         requiredAmountDisplay.changeAmount(0);
         ratingDisplay.changeAmount(ratingDisplay.getAmount() + 100);
+        bars.clear();
+        bills.clear();
 
         for (DenominationDisplay panel: denominationDisplays) {
             panel.changeAmount(0);
         }
-
-        // Fire customer leave event to handle animation
-        eventManager.fireEvent(new ATMEvent(ATMEvent.Type.CUSTOMER_LEAVE, null), stage);
     }
 
     private void changeAmount(ATMEvent event) {
@@ -280,13 +378,54 @@ public class GameScreen implements Screen {
         setDispenseButtonEnabled(amountsMatch);
     }
 
+    private void addBar(ATMEvent event) {
+        int index = game.denominations.indexOf((Integer)event.getData());
+        int denomination = game.denominations.get(index);
+        Color color = gradientColors.get(index);
+        bills.add(denomination);
+        bars.add(new Bar(color));
+        updateBarPositions();
+    }
+
+    private void removeBar(ATMEvent event) {
+        int lastIndex = findLastIndexOf(bills, Math.abs((Integer)event.getData()));
+        if (lastIndex > -1) {
+            bills.remove(lastIndex);
+            bars.remove(lastIndex);
+            updateBarPositions();
+        }
+    }
+
+    private void updateBarPositions() {
+        float barWidth = game.viewport.getWorldWidth() * 0.005f;
+        float spacing = game.viewport.getWorldWidth() * 0.01f;
+
+        for (int i=0; i<bars.size(); i++) {
+            bars.get(i).setRect(
+                game.viewport.getWorldWidth() * 0.075f + i * (barWidth + spacing),
+                game.viewport.getWorldHeight() * 0.425f,
+                barWidth,
+                game.viewport.getWorldHeight() * 0.05f
+            );
+        }
+    }
+
+    private int findLastIndexOf(List<Integer> list, int element) {
+        for (int i = list.size() - 1; i >= 0; i--) {
+            if (list.get(i) == element) {
+                return i; // Return the highest index of the matching element
+            }
+        }
+        return -1; // Return -1 if the element is not found
+    }
+
     // Method to create a valid amount for the customer request
     private int generateRandomRequestAmount() {
         int amount = 0;
         do {
             // Generate random amount of bills per denomination
             for (int denom : game.denominations) {
-                amount += denom * (int)(Math.floor(Math.random() * 5));
+                amount += denom * (int)(Math.floor(Math.random() * 4));
             }
         } while (amount == 0);  // Prevent a request of 0
         return amount;
@@ -296,6 +435,30 @@ public class GameScreen implements Screen {
         int minutes = (int) (timeLeft / 60);
         int seconds = (int) (timeLeft % 60);
         timer.setText(String.format("%d:%02d", minutes, seconds));
+    }
+
+    private void executeSortingStep(int[] step) {
+        // Logic to visualize the current sorting step
+        System.out.println("Executing step: " + java.util.Arrays.toString(step));
+    }
+
+    private void prepareSortingSteps(List<Integer> array) {
+        sortingSteps = new ArrayList<>();
+        // Simulate sorting (e.g., bubble sort) and store each step
+        for (int i = 0; i < array.size() - 1; i++) {
+            for (int j = 0; j < array.size() - i - 1; j++) {
+                if (array.get(j) > array.get(j + 1)) { // Change comparison for decreasing order
+                    // Swap elements
+                    int temp = array.get(j);
+                    array.set(j, array.get(j + 1));
+                    array.set(j + 1, temp);
+
+                    // Store the current state of the array
+                    int[] step = array.stream().mapToInt(Integer::intValue).toArray();
+                    sortingSteps.add(step);
+                }
+            }
+        }
     }
 
     // Set random texture for NPCs. Called whenever a new NPC spawns in
@@ -352,13 +515,16 @@ public class GameScreen implements Screen {
 
     // Initialization of all UI elements and parameters
     private void createUI() {
-        timer = new Label("00:00", game.skin, "numericLabel");
+        timer = new Label("00:00", game.skin, "numericLabelSmall");
         timeLeft = game.LEVEL_LENGTH_IN_SECONDS;
-        isTimerRunning = true;
+        isTimerRunning = false;
         timer.setPosition(game.viewport.getWorldWidth() * 0.5f, game.viewport.getWorldHeight() * 0.9f);
 
+        contextLabel = new Label("", game.skin, "gameScreenLabel");
+        timerLabel = new Label("Timer: ", game.skin, "gameScreenLabel");
+
         dispenseLabel = new Label("DISPENSE", game.skin, "gameScreenLabel");
-        dispenseLabel.setPosition(game.viewport.getWorldWidth() * 0.3725f, game.viewport.getWorldHeight() * 0.366f);
+        dispenseLabel.setPosition(game.viewport.getWorldWidth() * 0.435f, game.viewport.getWorldHeight() * 0.4f);
 
         bgImage = new Image(game.textureManager.gameBgTexture);
         bgImage.setSize(game.viewport.getWorldWidth(), game.viewport.getWorldHeight());
@@ -367,41 +533,41 @@ public class GameScreen implements Screen {
         npcImage = new Image(game.textureManager.npcTextures.get(0));
         npcImage.setVisible(false);
         npcImage.setSize(game.viewport.getWorldWidth() * 0.225f, game.viewport.getWorldWidth() * 0.225f);
-        npcImage.setPosition(game.viewport.getWorldWidth() * 0.085f, game.viewport.getWorldHeight() * 0.45f);
+        npcImage.setPosition(game.viewport.getWorldWidth() * 0.11f, game.viewport.getWorldHeight() * 0.52f);
 
         atmBgImage = new Image(game.textureManager.atmBgTexture);
         atmBgImage.setSize(game.viewport.getWorldWidth() * 0.275f, game.viewport.getWorldWidth() * 0.25f);
         atmBgImage.setPosition(game.viewport.getWorldWidth() * 0.06f, game.viewport.getWorldHeight() * 0.45f);
 
         atmBorderImage = new Image(game.textureManager.atmBorderTexture);
-        atmBorderImage.setSize(game.viewport.getWorldWidth() * 0.3f, game.viewport.getWorldWidth() * 0.3f);
-        atmBorderImage.setPosition(game.viewport.getWorldWidth() * 0.05f, game.viewport.getWorldHeight() * 0.4f);
+        atmBorderImage.setSize(game.viewport.getWorldWidth() * 0.365f, game.viewport.getWorldWidth() * 0.23f);
+        atmBorderImage.setPosition(game.viewport.getWorldWidth() * 0.045f, game.viewport.getWorldHeight() * 0.52f);
 
         atmCardImage = new Image(game.textureManager.atmCardTexture);
         atmCardImage.setSize(game.viewport.getWorldWidth() * 0.225f, game.viewport.getWorldWidth() * 0.15f);
         atmCardImage.setPosition(game.viewport.getWorldWidth() * 0.375f, game.viewport.getWorldHeight() * 0.575f);
 
         requiredAmountDisplay = new TransactionPanel(game, game.textureManager.amountLabelTexture, "REQUIRED");
-        requiredAmountDisplay.setSize(game.viewport.getWorldWidth() * 0.275f, game.viewport.getWorldHeight() * 0.15f);
-        requiredAmountDisplay.setPosition(game.viewport.getWorldWidth() * 0.05f, game.viewport.getWorldHeight() * 0.225f);
+        requiredAmountDisplay.setSize(game.viewport.getWorldWidth() * 0.305f, game.viewport.getWorldHeight() * 0.15f);
+        requiredAmountDisplay.setPosition(game.viewport.getWorldWidth() * 0.075f, game.viewport.getWorldHeight() * 0.215f);
         requiredAmountDisplay.layoutElements();
 
         totalAmountDisplay = new TransactionPanel(game, game.textureManager.amountLabelTexture, "TOTAL");
-        totalAmountDisplay.setSize(game.viewport.getWorldWidth() * 0.275f, game.viewport.getWorldHeight() * 0.15f);
-        totalAmountDisplay.setPosition(game.viewport.getWorldWidth() * 0.05f, game.viewport.getWorldHeight() * 0.05f);
+        totalAmountDisplay.setSize(game.viewport.getWorldWidth() * 0.305f, game.viewport.getWorldHeight() * 0.15f);
+        totalAmountDisplay.setPosition(game.viewport.getWorldWidth() * 0.075f, game.viewport.getWorldHeight() * 0.025f);
         totalAmountDisplay.layoutElements();
 
         highScoreDisplay  = new ScorePanel(game, game.textureManager.scoreLabelTexture, "HIGH SCORE");
-        highScoreDisplay.setSize(game.viewport.getWorldWidth() * 0.275f, game.viewport.getWorldHeight() * 0.15f);
-        highScoreDisplay.setPosition(game.viewport.getWorldWidth() * 0.625f, game.viewport.getWorldHeight() * 0.7f);
+        highScoreDisplay.setSize(game.viewport.getWorldWidth() * 0.305f, game.viewport.getWorldHeight() * 0.15f);
+        highScoreDisplay.setPosition(game.viewport.getWorldWidth() * 0.685f, game.viewport.getWorldHeight() * 0.78f);
         highScoreDisplay.layoutElements();
 
         ratingDisplay = new ScorePanel(game, game.textureManager.scoreLabelTexture, "RATING");
-        ratingDisplay.setSize(game.viewport.getWorldWidth() * 0.275f, game.viewport.getWorldHeight() * 0.15f);
-        ratingDisplay.setPosition(game.viewport.getWorldWidth() * 0.625f, game.viewport.getWorldHeight() * 0.525f);
+        ratingDisplay.setSize(game.viewport.getWorldWidth() * 0.305f, game.viewport.getWorldHeight() * 0.15f);
+        ratingDisplay.setPosition(game.viewport.getWorldWidth() * 0.685f, game.viewport.getWorldHeight() * 0.585f);
         ratingDisplay.layoutElements();
 
-        float denominationPanelSectionWidth = game.viewport.getWorldWidth() * 0.55f;
+        float denominationPanelSectionWidth = game.viewport.getWorldWidth() * 0.525f;
         float panelSpacing = denominationPanelSectionWidth / (game.denominations.size() + 1);
 
         for (int i = 0; i < game.denominations.size(); i++) {
@@ -413,8 +579,8 @@ public class GameScreen implements Screen {
         ImageButton.ImageButtonStyle pauseStyle = new ImageButton.ImageButtonStyle();
         pauseStyle.up = new Image(game.textureManager.pauseButtonTexture).getDrawable();
         pauseButton = new ImageButton(pauseStyle);
-        pauseButton.setSize(game.viewport.getWorldWidth() * 0.04f, game.viewport.getWorldWidth() * 0.04f);
-        pauseButton.setPosition(game.viewport.getWorldWidth() * 0.92f, game.viewport.getWorldHeight() * 0.875f);
+        pauseButton.setSize(game.viewport.getWorldWidth() * 0.03f, game.viewport.getWorldWidth() * 0.03f);
+        pauseButton.setPosition(game.viewport.getWorldWidth() / 2 - pauseButton.getWidth() / 2, game.viewport.getWorldHeight() * 0.94f);
 
         ImageButton.ImageButtonStyle correctStyle = new ImageButton.ImageButtonStyle();
         correctStyle.up = new Image(game.textureManager.correctButtonDisabledTexture).getDrawable();
@@ -422,7 +588,7 @@ public class GameScreen implements Screen {
         correctButton = new ImageButton(correctStyle);
         correctButton.setTouchable(Touchable.disabled);
         correctButton.setSize(game.viewport.getWorldWidth() * 0.06f, game.viewport.getWorldWidth() * 0.06f);
-        correctButton.setPosition(game.viewport.getWorldWidth() * 0.35f, game.viewport.getWorldHeight() * 0.225f);
+        correctButton.setPosition(game.viewport.getWorldWidth() * 0.435f, game.viewport.getWorldHeight() * 0.235f);
 
         ImageButton.ImageButtonStyle wrongStyle = new ImageButton.ImageButtonStyle();
         wrongStyle.up = new Image(game.textureManager.wrongButtonDisabledTexture).getDrawable();
@@ -430,7 +596,7 @@ public class GameScreen implements Screen {
         wrongButton = new ImageButton(wrongStyle);
         wrongButton.setTouchable(Touchable.disabled);
         wrongButton.setSize(game.viewport.getWorldWidth() * 0.06f, game.viewport.getWorldWidth() * 0.06f);
-        wrongButton.setPosition(game.viewport.getWorldWidth() * 0.35f, game.viewport.getWorldHeight() * 0.06f);
+        wrongButton.setPosition(game.viewport.getWorldWidth() * 0.435f, game.viewport.getWorldHeight() * 0.06f);
 
         ImageButton.ImageButtonStyle dispenseStyle = new ImageButton.ImageButtonStyle();
         dispenseStyle.up = new Image(game.textureManager.dispenseButtonUpTexture).getDrawable();
@@ -438,15 +604,29 @@ public class GameScreen implements Screen {
         dispenseStyle.disabled = new Image(game.textureManager.dispenseButtonDownTexture).getDrawable();
         dispenseButton = new ImageButton(dispenseStyle);
         dispenseButton.setSize(game.viewport.getWorldWidth() * 0.075f, game.viewport.getWorldWidth() * 0.075f);
-        dispenseButton.setPosition(game.viewport.getWorldWidth() * 0.366f, game.viewport.getWorldHeight() * 0.4f);
+        dispenseButton.setPosition(game.viewport.getWorldWidth() * 0.43f, game.viewport.getWorldHeight() * 0.445f);
         dispenseButton.setDisabled(true);
         dispenseButton.setDisabled(true);
 
+        Table labelTable = new Table();
+
+        // Add labels to the table
+        labelTable.add(timerLabel).right();
+        labelTable.add(timer).left();
+        labelTable.top().row();
+        labelTable.add(contextLabel).colspan(2).center().padTop(game.viewport.getWorldHeight() * 0.1f).row(); // Add context label
+
+        labelTable.setSize(game.viewport.getWorldWidth() * 0.23f, game.viewport.getWorldHeight() * 0.3f);
+        labelTable.setPosition(game.viewport.getWorldWidth() * 0.4125f, game.viewport.getWorldHeight() * 0.62f);
+
+        Label legendLabel = new Label("LEGEND:", game.skin, "gameScreenLabel");
+        legendLabel.setPosition(game.viewport.getWorldWidth() * 0.545f, game.viewport.getWorldHeight() * 0.525f);
+
         stage.addActor(bgImage);
-        stage.addActor(atmBgImage);
+        //stage.addActor(atmBgImage);
         stage.addActor(npcImage);
         stage.addActor(atmBorderImage);
-        stage.addActor(atmCardImage);
+        //stage.addActor(atmCardImage);
         stage.addActor(requiredAmountDisplay);
         stage.addActor(totalAmountDisplay);
         stage.addActor(highScoreDisplay);
@@ -456,12 +636,25 @@ public class GameScreen implements Screen {
         stage.addActor(dispenseButton);
         stage.addActor(pauseButton);
         stage.addActor(dispenseLabel);
+        //stage.addActor(contextLabel);
+        stage.addActor(labelTable);
+        stage.addActor(legendLabel);
 
         for (int i = 0; i < game.denominations.size(); i++) {
             stage.addActor(denominationDisplays.get(i));
         }
 
-        stage.addActor(timer);
+        for (int i = 0; i < game.denominations.size(); i++) {
+            Bar b = new Bar(gradientColors.get(i));
+            float width = denominationDisplays.get(i).getWidth() / 2;
+            b.setRect(
+                denominationDisplays.get(i).getX() + width / 2,
+                denominationDisplays.get(i).getY() + (float) (width * 9.75),
+                width,
+                width
+            );
+            barDisplay.add(b);
+        }
     }
 
     private DenominationDisplay getDenominationDisplay(int i, float panelSpacing) {
@@ -474,10 +667,14 @@ public class GameScreen implements Screen {
         panel.setSize(game.viewport.getWorldWidth() * 0.05f, game.viewport.getWorldHeight() * 0.4f);
 
         panel.setPosition(
-            game.viewport.getWorldWidth() * 0.425f + (i + 1) * panelSpacing - panel.getWidth() / 2,
-            game.viewport.getWorldHeight() * 0.1f
+            game.viewport.getWorldWidth() * 0.5f + (i + 1) * panelSpacing - panel.getWidth() / 2,
+            game.viewport.getWorldHeight() * 0.025f
         );
 
         return panel;
+    }
+
+    public int getGameMode() {
+        return difficulty;
     }
 }
