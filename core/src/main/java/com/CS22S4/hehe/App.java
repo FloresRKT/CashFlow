@@ -52,7 +52,7 @@ public class App extends Game {
 
         Gdx.graphics.setWindowedMode(1280, 720);
 
-        skin = new Skin(Gdx.files.internal("data/uiskin.json"));
+        skin = new Skin(/*Gdx.files.internal("assets/data/uiskin.json")*/);
 
         // Load fonts
         fontManager = new FontManager(skin);

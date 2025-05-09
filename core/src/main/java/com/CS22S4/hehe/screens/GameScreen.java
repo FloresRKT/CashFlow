@@ -26,6 +26,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class GameScreen implements Screen {
@@ -37,6 +38,8 @@ public class GameScreen implements Screen {
     private ArrayList<Customer> customerQueue;
     private int difficulty;
     private int totalAmountDispensed;
+
+    private Table labelTable;
 
     private boolean isPauseOverlayVisible;
 
@@ -72,7 +75,13 @@ public class GameScreen implements Screen {
     private boolean isGameOver = false;
     private boolean isSorting = false;
 
+    private int rating;
+
     private Label contextLabel;
+    private Label contextLabel1;
+    private Label contextLabel2;
+    private Label contextLabel3;
+    private Label contextLabel4;
     private Label timerLabel;
 
     private float elapsedTime = 0f; // Accumulated time
@@ -111,6 +120,7 @@ public class GameScreen implements Screen {
         gradientColors = GradientColorGenerator.generateGradientColors(size, colors);
 
         totalAmountDispensed = 0;
+        rating = 0;
 
         createUI();
         setupEventListeners();
@@ -123,6 +133,7 @@ public class GameScreen implements Screen {
         if (isSorting) {
             // Accumulate delta time
             elapsedTime += delta;
+
             // Execute the next step if the interval has passed
             if (elapsedTime >= stepInterval && currentStep < sortingSteps.size()) {
                 elapsedTime -= stepInterval; // Reset elapsed time
@@ -330,6 +341,10 @@ public class GameScreen implements Screen {
                 }
 
                 isTimerRunning = true;
+                contextLabel1.setText("");
+                contextLabel2.setText("");
+                contextLabel3.setText("");
+                contextLabel4.setText("");
                 contextLabel.setText("Transaction in progress...");
             })
         ));
@@ -357,7 +372,18 @@ public class GameScreen implements Screen {
         currentCustomer.completeRequest(serviceTime);
         totalAmountDispensed += totalAmountDisplay.getAmount();
 
+        int correctAmountOfBills = solveAmount(game.denominations, currentCustomer.getRequestedAmount()).size();
+        if (bills.size() - correctAmountOfBills > 0) {
+            rating += 100 - (bills.size() - correctAmountOfBills) * 10;
+        }
+
         prepareSortingSteps(new ArrayList<>(bills));
+
+        if (checkArrayOrder(bills)) {
+            rating += 100;
+        } else {
+            rating += 100 - sortingSteps.size();
+        }
 
         if (sortingSteps.isEmpty()) {
             isSorting = false;
@@ -368,6 +394,12 @@ public class GameScreen implements Screen {
         } else {
             isSorting = true;
             contextLabel.setText("Sorting...");
+            int amountRating = 100 - (bills.size() - correctAmountOfBills) * 10;
+            int sortedRating = 100 - sortingSteps.size();
+
+            contextLabel2.setText("Completed Transaction: 100");
+            contextLabel3.setText("Bills Rating : " + amountRating);
+            contextLabel4.setText("Sorting Rating: " + sortedRating);
         }
     }
 
@@ -378,7 +410,10 @@ public class GameScreen implements Screen {
         setDispenseButtonEnabled(false);
         totalAmountDisplay.changeAmount(0);
         requiredAmountDisplay.changeAmount(0);
-        ratingDisplay.changeAmount(ratingDisplay.getAmount() + 100 + (int) (timeLeft * 10));
+        rating = 100 + (int) (timeLeft * 10);
+        ratingDisplay.changeAmount(ratingDisplay.getAmount() + rating);
+        // Reset rating
+        rating = 0;
         if (ratingDisplay.getAmount() > highScoreDisplay.getAmount()) {
             highScoreDisplay.changeAmount(ratingDisplay.getAmount());
         }
@@ -486,15 +521,15 @@ public class GameScreen implements Screen {
         }
     }
 
-    public static boolean checkArrayOrder(int[] array) {
+    public static boolean checkArrayOrder(List<Integer> array) {
         boolean isAscending = true;
         boolean isDescending = true;
 
-        for (int i = 0; i < array.length - 1; i++) {
-            if (array[i] > array[i + 1]) {
+        for (int i = 0; i < array.size() - 1; i++) {
+            if (array.get(i) > array.get(i + 1)) {
                 isAscending = false;
             }
-            if (array[i] < array[i + 1]) {
+            if (array.get(i) < array.get(i + 1)) {
                 isDescending = false;
             }
         }
@@ -657,13 +692,22 @@ public class GameScreen implements Screen {
         dispenseButton.setDisabled(true);
         dispenseButton.setDisabled(true);
 
-        Table labelTable = new Table();
+        contextLabel1 = new Label("", game.skin, "gameScreenLabel");
+        contextLabel2 = new Label("", game.skin, "gameScreenLabel");
+        contextLabel3 = new Label("", game.skin, "gameScreenLabel");
+        contextLabel4 = new Label("", game.skin, "gameScreenLabel");
+
+        labelTable = new Table();
 
         // Add labels to the table
         labelTable.add(timerLabel).right();
         labelTable.add(timer).left();
         labelTable.top().row();
-        labelTable.add(contextLabel).colspan(2).center().padTop(game.viewport.getWorldHeight() * 0.1f).row(); // Add context label
+        labelTable.add(contextLabel).colspan(2).center().padTop(game.viewport.getWorldHeight() * 0.025f).row(); // Add context label
+        labelTable.add(contextLabel1).colspan(2).left().row();
+        labelTable.add(contextLabel2).colspan(2).left().row();
+        labelTable.add(contextLabel3).colspan(2).left().row();
+        labelTable.add(contextLabel4).colspan(2).left().row();
 
         labelTable.setSize(game.viewport.getWorldWidth() * 0.23f, game.viewport.getWorldHeight() * 0.3f);
         labelTable.setPosition(game.viewport.getWorldWidth() * 0.4125f, game.viewport.getWorldHeight() * 0.62f);
@@ -721,6 +765,29 @@ public class GameScreen implements Screen {
         );
 
         return panel;
+    }
+
+    public static List<Integer> solveAmount(List<Integer> denominations, int amount) {
+        // Sort denominations in descending order
+        List<Integer> sortedDenominations = new ArrayList<>(denominations);
+        Collections.sort(sortedDenominations, Collections.reverseOrder());
+
+        List<Integer> result = new ArrayList<>();
+        int remainingAmount = amount;
+
+        for (int denomination : sortedDenominations) {
+            while (remainingAmount >= denomination) {
+                result.add(denomination);
+                remainingAmount -= denomination;
+            }
+        }
+
+        // If the remaining amount is not zero, the amount cannot be fulfilled
+        if (remainingAmount != 0) {
+            return new ArrayList<>(); // Return an empty list if the amount cannot be fulfilled
+        }
+
+        return result;
     }
 
     public int getGameMode() {
