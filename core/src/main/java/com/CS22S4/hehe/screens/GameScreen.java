@@ -1,6 +1,5 @@
 package com.CS22S4.hehe.screens;
 
-import com.CS22S4.hehe.entity.Bill;
 import com.CS22S4.hehe.entity.Customer;
 import com.CS22S4.hehe.events.ATMEvent;
 import com.CS22S4.hehe.events.EventManager;
@@ -22,7 +21,6 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import static com.badlogic.gdx.scenes.scene2d.actions.Actions.*;
 
-import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 import java.util.ArrayList;
